@@ -4,6 +4,7 @@ const config = {
   port: process.env.PORT,
   mongoUri: process.env.MONGO_URI,
   nodeEnv: process.env.NODE_ENV,
+  jwtSecret: process.env.JWT_SECRET,
 };
 
 export default Object.freeze(config);
