@@ -4,15 +4,16 @@ import httpStatusCodes from "../utils/httpStatusCodes";
 import User from "./userModel";
 import jwt from "jsonwebtoken";
 import config from "../config/config";
+import bcrypt from "bcrypt";
 
 export const registerUser = catchErrors(async (req, res) => {
   const { name, email, password } = req.body;
 
   // validation
-  if ([name, email, password].some((field) => field?.trim() === "")) {
+  if ([name, email, password].some((field) => field?.trim())) {
     throw createHttpError(
       httpStatusCodes.BAD_REQUEST,
-      "All fields are required"
+      "all fields are required"
     );
   }
 
@@ -22,7 +23,7 @@ export const registerUser = catchErrors(async (req, res) => {
   if (isUserExists) {
     throw createHttpError(
       httpStatusCodes.CONFLICT,
-      "User already exists with this email."
+      "user already exists with this email"
     );
   }
 
@@ -42,11 +43,52 @@ export const registerUser = catchErrors(async (req, res) => {
   } catch (error) {
     throw createHttpError(
       httpStatusCodes.INTERNAL_SERVER_ERROR,
-      "Error while generating token"
+      "error while generating token"
     );
   }
 
   res
     .status(httpStatusCodes.CREATED)
-    .json({ message: "User registered successfully", accessToken: token });
+    .json({ message: "user registered successfully", accessToken: token });
+});
+
+export const loginUser = catchErrors(async (req, res) => {
+  const { email, password } = req.body;
+
+  if ([email, password].some((field) => !field?.trim())) {
+    throw createHttpError(
+      httpStatusCodes.BAD_REQUEST,
+      "all fields are required"
+    );
+  }
+
+  const user = await User.findOne({ email });
+
+  if (!user) {
+    throw createHttpError(
+      httpStatusCodes.NOT_FOUND,
+      "user not found with this email"
+    );
+  }
+
+  const isPasswordValid = await bcrypt.compare(password, user.password);
+  if (!isPasswordValid) {
+    throw createHttpError(httpStatusCodes.BAD_REQUEST, "incorrect password");
+  }
+
+  let token;
+  try {
+    token = jwt.sign({ userId: user._id }, config.jwtSecret as string, {
+      expiresIn: "7d",
+    });
+  } catch (error) {
+    throw createHttpError(
+      httpStatusCodes.INTERNAL_SERVER_ERROR,
+      "error while generating token"
+    );
+  }
+
+  res
+    .status(httpStatusCodes.OK)
+    .json({ message: "user loggedIn successfully", accessToken: token });
 });
